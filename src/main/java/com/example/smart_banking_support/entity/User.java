@@ -15,7 +15,6 @@ public class User {
     @Column(name = "sso_id", unique = true)
     private String ssoId;
 
-    // Quan hệ Many-to-One với bảng Roles
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "role_id")
     private Role role;
@@ -29,10 +28,22 @@ public class User {
     @Column(name = "full_name")
     private String fullName;
 
+    // --- CÁC TRƯỜNG MỚI CHO LOGIC PHÂN CÔNG (V4) ---
+
+    @Column(name = "is_online")
+    private boolean isOnline = false; // Trạng thái làm việc
+
+    @Column(name = "current_load")
+    private int currentLoad = 0; // Số ticket đang xử lý
+
+    @Column(name = "last_assigned_at")
+    private LocalDateTime lastAssignedAt; // Thời điểm nhận việc gần nhất (để chia đều Round-Robin)
+
+    // ------------------------------------------------
+
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
-    // Tự động thêm ngày tạo
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 

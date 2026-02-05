@@ -79,6 +79,9 @@ public class Ticket {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
+    @OneToOne(mappedBy = "ticket", fetch = FetchType.EAGER) // Hoặc LAZY tùy nhu cầu
+    private TicketAIInsight aiInsight;
+
     // Tự động sinh mã Ticket Code trước khi lưu
     @PrePersist
     protected void onCreate() {
