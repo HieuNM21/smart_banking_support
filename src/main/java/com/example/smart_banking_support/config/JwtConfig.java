@@ -1,5 +1,7 @@
 package com.example.smart_banking_support.config;
 
+import com.nimbusds.jose.JOSEObjectType;
+import com.nimbusds.jose.proc.DefaultJOSEObjectTypeVerifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -21,12 +23,23 @@ public class JwtConfig {
 
     @Bean
     public JwtDecoder jwtDecoder() {
-        // Tạo RestTemplate sử dụng Factory bỏ qua lỗi SSL
+        // 1. Cấu hình Bypass SSL (Do dùng HTTPS tự ký)
         RestTemplate restTemplate = new RestTemplate(new TrustAllClientHttpRequestFactory());
 
-        // Cấu hình JwtDecoder dùng RestTemplate này để gọi sang WSO2 lấy Key
+        // 2. Build JwtDecoder
         return NimbusJwtDecoder.withJwkSetUri(jwkSetUri)
-                .restOperations(restTemplate)
+                .restOperations(restTemplate) // Áp dụng bypass SSL
+                .jwtProcessorCustomizer(processor -> {
+                    // 3. FIX LỖI: JOSE header typ (type) at+jwt not allowed
+                    // Cấu hình cho phép chấp nhận cả 'at+jwt', 'JWT' và 'null'
+                    processor.setJWSTypeVerifier(
+                            new DefaultJOSEObjectTypeVerifier<>(
+                                    new JOSEObjectType("at+jwt"), // Chuẩn mới của WSO2 (RFC 9068)
+                                    new JOSEObjectType("JWT"),    // Chuẩn cũ
+                                    null                          // Không có header typ
+                            )
+                    );
+                })
                 .build();
     }
 

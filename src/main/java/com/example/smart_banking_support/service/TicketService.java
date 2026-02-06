@@ -56,22 +56,31 @@ public class TicketService {
         ticket.setStatus(TicketStatus.OPEN);
         ticket.setPriority(TicketPriority.MEDIUM);
 
+        ticket.setGuestName(request.getGuestName());
+        ticket.setGuestEmail(request.getGuestEmail());
+        ticket.setGuestPhone(request.getGuestPhone());
+
         // --- LOGIC 1: ĐỊNH DANH USER ---
         if (ssoId != null) {
+            // Trường hợp 1: Có Token -> Lấy user từ SSO ID
             User user = userRepository.findBySsoId(ssoId)
-                    .orElseThrow(() -> new RuntimeException("User not found with SSO ID: " + ssoId));
+                    .orElseThrow(() -> new RuntimeException("User not found: " + ssoId));
             ticket.setCustomer(user);
-        } else {
-            if (request.getGuestPhone() != null) {
-                Optional<User> existingUser = userRepository.findByPhoneNumberAndDeletedAtIsNull(request.getGuestPhone());
-                if (existingUser.isPresent()) {
-                    ticket.setCustomer(existingUser.get());
-                    log.info("Mapped guest phone {} to existing user ID {}", request.getGuestPhone(), existingUser.get().getId());
-                } else {
-                    ticket.setGuestName(request.getGuestName());
-                    ticket.setGuestEmail(request.getGuestEmail());
-                    ticket.setGuestPhone(request.getGuestPhone());
-                }
+        } else if (request.getGuestPhone() != null) {
+            // Trường hợp 2: Khách vãng lai -> Tìm user theo SĐT
+            Optional<User> existingUser = userRepository.findByPhoneNumberAndDeletedAtIsNull(request.getGuestPhone());
+
+            if (existingUser.isPresent()) {
+                // TÌM THẤY: Link ticket vào hồ sơ cũ để theo dõi lịch sử
+                ticket.setCustomer(existingUser.get());
+                log.info("🔗 Đã map ticket vào khách hàng cũ ID: {}", existingUser.get().getId());
+
+                // Lưu ý: Ta KHÔNG cập nhật tên/email của User gốc bằng dữ liệu form
+                // vì dữ liệu form chưa được xác thực (Unverified).
+            } else {
+                // KHÔNG TÌM THẤY: Đây là khách hoàn toàn mới
+                // customer_id sẽ để null
+                log.info("🆕 Khách hàng mới: {}", request.getGuestPhone());
             }
         }
 

@@ -1,5 +1,6 @@
 package com.example.smart_banking_support.config;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.method.configuration.EnableGlobalMethodSecurity;
@@ -14,10 +15,14 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import java.util.Arrays;
 import java.util.Collections;
 
+import static org.springframework.security.authorization.AuthorityAuthorizationManager.hasRole;
+
 @Configuration
 @EnableWebSecurity
 @EnableGlobalMethodSecurity(prePostEnabled = true)
+@RequiredArgsConstructor
 public class SecurityConfig {
+    private final CustomJwtAuthenticationConverter customJwtAuthenticationConverter;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -29,11 +34,14 @@ public class SecurityConfig {
                 .antMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                 .antMatchers("/api/public/**", "/actuator/**").permitAll()
                 .antMatchers("/ws/**").permitAll()
-                .antMatchers("/api/admin/**").authenticated()
-                .antMatchers("/api/agent/**").authenticated()
+                .antMatchers("/api/admin/**").hasRole("ADMIN")
+                .antMatchers("/api/agent/**").hasAnyRole("INTERNAL_AGENT", "ADMIN")
+                .antMatchers("/api/client/**").hasRole("CUSTOMER")
                 .anyRequest().authenticated()
                 .and()
-                .oauth2ResourceServer().jwt();
+                .oauth2ResourceServer()
+                .jwt()
+                .jwtAuthenticationConverter(customJwtAuthenticationConverter);;
 
         return http.build();
     }
