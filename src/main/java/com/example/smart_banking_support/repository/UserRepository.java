@@ -19,4 +19,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
     // Limit 1 sẽ được xử lý ở Service hoặc dùng Pageable
     @Query("SELECT u FROM User u WHERE u.role.name = 'INTERNAL_AGENT' AND u.isOnline = true ORDER BY u.currentLoad ASC, u.lastAssignedAt ASC")
     List<User> findAvailableAgents();
+
+    Optional<User> findByUsername(String username);
 }
