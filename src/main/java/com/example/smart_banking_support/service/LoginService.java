@@ -12,6 +12,8 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 
+import javax.net.ssl.*;
+import java.security.cert.X509Certificate;
 import java.util.Base64;
 import java.util.Optional;
 
@@ -27,19 +29,45 @@ public class LoginService {
     @Value("${wso2.client-secret}")
     private String clientSecret;
 
-    @Value("${wso2.token-uri}") // https://wso2is.com/oauth2/token
+    @Value("${wso2.token-uri}")
     private String tokenUri;
 
-    @Value("${app.backend-callback-url}") // http://localhost:8080/api/auth/callback
+    @Value("${app.backend-callback-url}")
     private String redirectUri;
 
-    private final RestTemplate restTemplate = new RestTemplate();
+    // --- PHẦN 1: HÀM TẮT SSL TOÀN CỤC (MẠNH TAY NHẤT) ---
+    private void disableSslVerification() {
+        try {
+            // Tạo TrustManager tin tưởng tất cả
+            TrustManager[] trustAllCerts = new TrustManager[] {
+                    new X509TrustManager() {
+                        public java.security.cert.X509Certificate[] getAcceptedIssuers() { return null; }
+                        public void checkClientTrusted(X509Certificate[] certs, String authType) { }
+                        public void checkServerTrusted(X509Certificate[] certs, String authType) { }
+                    }
+            };
 
-    // 1. Hàm đổi Authorization Code lấy Access Token & ID Token
+            // Cài đặt TrustManager này vào SSL Context mặc định của Java
+            SSLContext sc = SSLContext.getInstance("SSL");
+            sc.init(null, trustAllCerts, new java.security.SecureRandom());
+            HttpsURLConnection.setDefaultSSLSocketFactory(sc.getSocketFactory());
+
+            // Tắt luôn kiểm tra Hostname (bỏ qua lỗi domain không khớp)
+            HostnameVerifier allHostsValid = (hostname, session) -> true;
+            HttpsURLConnection.setDefaultHostnameVerifier(allHostsValid);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    // --- PHẦN 2: LOGIC TRAO ĐỔI TOKEN ---
     public JsonNode exchangeCodeForToken(String authCode) {
+        // GỌI HÀM TẮT SSL NGAY ĐẦU TIÊN
+        disableSslVerification();
+
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
-        headers.setBasicAuth(clientId, clientSecret); // Gửi Client ID/Secret
+        headers.setBasicAuth(clientId, clientSecret);
 
         MultiValueMap<String, String> map = new LinkedMultiValueMap<>();
         map.add("grant_type", "authorization_code");
@@ -49,35 +77,38 @@ public class LoginService {
         HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(map, headers);
 
         try {
+            // Lúc này chỉ cần new RestTemplate() bình thường
+            // Vì disableSslVerification() đã can thiệp vào tầng core của Java
+            RestTemplate restTemplate = new RestTemplate();
+
             ResponseEntity<String> response = restTemplate.postForEntity(tokenUri, request, String.class);
             ObjectMapper mapper = new ObjectMapper();
             return mapper.readTree(response.getBody());
         } catch (Exception e) {
-            throw new RuntimeException("Lỗi khi gọi WSO2 lấy token: " + e.getMessage());
+            e.printStackTrace(); // In lỗi ra console
+            throw new RuntimeException("Lỗi gọi WSO2: " + e.getMessage());
         }
     }
 
-    // 2. Hàm lấy Username từ ID Token (JWT)
+    // --- PHẦN 3: CÁC HÀM PHỤ TRỢ KHÁC (GIỮ NGUYÊN) ---
     public String extractUsernameFromIdToken(String idToken) {
         try {
-            // JWT có 3 phần: Header.Payload.Signature. Ta chỉ cần decode phần Payload (giữa)
             String[] parts = idToken.split("\\.");
             String payloadJson = new String(Base64.getUrlDecoder().decode(parts[1]));
-
             ObjectMapper mapper = new ObjectMapper();
             JsonNode payload = mapper.readTree(payloadJson);
 
-            // Lấy field 'sub' (subject) hoặc 'preferred_username' tùy cấu hình WSO2
+            if (payload.has("preferred_username")) {
+                return payload.get("preferred_username").asText();
+            }
             return payload.get("sub").asText();
         } catch (Exception e) {
-            throw new RuntimeException("Token không hợp lệ");
+            throw new RuntimeException("Lỗi parse Token: " + e.getMessage());
         }
     }
 
-    // 3. Hàm Logic Gatekeeper: Kiểm tra user có trong DB không
     public User validateUserExistence(String username) {
-        Optional<User> userOpt = userRepository.findByUsername(username);
-        // Nếu không có -> Trả về null (hoặc throw exception tùy cách xử lý)
+        Optional<User> userOpt = userRepository.findBySsoId(username);
         return userOpt.orElse(null);
     }
 }

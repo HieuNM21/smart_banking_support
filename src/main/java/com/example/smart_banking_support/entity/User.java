@@ -1,12 +1,16 @@
 package com.example.smart_banking_support.entity;
 
-import lombok.Data;
+import lombok.*;
+
 import javax.persistence.*;
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "users")
-@Data
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
 public class User {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -17,6 +21,8 @@ public class User {
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "role_id")
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     private Role role;
 
     @Column(nullable = false)
@@ -28,18 +34,15 @@ public class User {
     @Column(name = "full_name")
     private String fullName;
 
-    // --- CÁC TRƯỜNG MỚI CHO LOGIC PHÂN CÔNG (V4) ---
-
     @Column(name = "is_online")
-    private boolean isOnline = false; // Trạng thái làm việc
+    private boolean isOnline = false;
 
     @Column(name = "current_load")
-    private int currentLoad = 0; // Số ticket đang xử lý
+    private int currentLoad = 0;
 
     @Column(name = "last_assigned_at")
-    private LocalDateTime lastAssignedAt; // Thời điểm nhận việc gần nhất (để chia đều Round-Robin)
+    private LocalDateTime lastAssignedAt;
 
-    // ------------------------------------------------
 
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;

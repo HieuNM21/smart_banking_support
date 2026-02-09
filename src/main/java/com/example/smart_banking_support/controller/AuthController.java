@@ -5,11 +5,15 @@ import com.example.smart_banking_support.entity.User;
 import com.example.smart_banking_support.service.LoginService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -84,7 +88,7 @@ public class AuthController {
     private String determineRedirectUrl(String roleName) {
         // Luôn kiểm tra null hoặc rỗng trước
         if (roleName == null || roleName.isEmpty()) {
-            return "/home";
+            return "/";
         }
 
         // Dùng equalsIgnoreCase để không lo viết hoa/thường (Admin vs ADMIN)
@@ -96,6 +100,32 @@ public class AuthController {
             return "/portal/home";
         }
 
-        return "/home";
+        return "/";
+    }
+
+    @GetMapping("/me")
+    public ResponseEntity<?> getCurrentUser(@CookieValue(name = "SBSC_SESSION", required = false) String username) {
+        System.out.println("DEBUG: Cookie username nhận được = " + username);
+        // 1. Nếu không có Cookie -> Coi như chưa đăng nhập
+        if (username == null || username.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Chưa đăng nhập");
+        }
+
+        // 2. Query DB để lấy thông tin mới nhất (Role, Fullname...)
+        User user = ssoService.validateUserExistence(username); // Hàm này bạn đã có
+
+        if (user == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("User không tồn tại");
+        }
+
+        // 3. Trả về JSON cho FE (Không trả về password!)
+        // Bạn nên tạo một DTO class UserResponse để trả về cho đẹp
+        Map<String, Object> response = new HashMap<>();
+        response.put("username", user.getSsoId());
+        response.put("role", user.getRole().getName());
+        response.put("fullName", user.getFullName()); // Nếu có field này
+        System.out.println("DEBUG FINAL RESPONSE: " + response);
+
+        return ResponseEntity.ok(response);
     }
 }

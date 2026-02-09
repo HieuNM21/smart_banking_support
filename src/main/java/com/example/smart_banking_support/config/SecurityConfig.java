@@ -34,7 +34,7 @@ public class SecurityConfig {
                 .antMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                 .antMatchers("/api/public/**", "/actuator/**").permitAll()
                 .antMatchers("/ws/**").permitAll()
-                .antMatchers("/api/auth/login", "/api/auth/callback").permitAll()
+                .antMatchers("/api/auth/login", "/api/auth/callback", "/api/auth/me").permitAll()
                 .antMatchers("/api/admin/**").hasRole("ADMIN")
                 .antMatchers("/api/agent/**").hasAnyRole("INTERNAL_AGENT", "ADMIN")
                 .antMatchers("/api/client/**").hasRole("CUSTOMER")
