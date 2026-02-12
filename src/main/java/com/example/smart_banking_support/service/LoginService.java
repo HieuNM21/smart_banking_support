@@ -90,7 +90,7 @@ public class LoginService {
         }
     }
 
-    // --- PHẦN 3: CÁC HÀM PHỤ TRỢ KHÁC (GIỮ NGUYÊN) ---
+    // --- PHẦN 3: CÁC HÀM PHỤ TRỢ KHÁC (GIỮ NGUYÊN) -- -
     public String extractUsernameFromIdToken(String idToken) {
         try {
             String[] parts = idToken.split("\\.");
